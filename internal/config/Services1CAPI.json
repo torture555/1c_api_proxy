@@ -1,0 +1,5 @@
+{
+  "MinPort": 14100,
+  "MaxPort": 14200,
+  "Timeout": 10
+}
