@@ -1,59 +1,76 @@
 package app
 
 import (
+	"1c_api_proxy/internal/handlers"
+	"1c_api_proxy/internal/middleware"
 	"1c_api_proxy/internal/models"
-	"encoding/json"
-	"log"
+	api_v1 "1c_api_proxy/internal/transport/rest/v1"
+	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
+	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
 
-func StartServices1CAPI() {
+func StartRouteProxy() {
 
-	exPath, _ := os.Executable()
-	configPath := exPath + "/config/"
-	fileConf := configPath + "configs.json"
+	fileConf := "config/app.json"
 
-	configModel := models.Service1CAPI{}
+	configModel := models.ConfApp{}
 	dataFile, err := os.ReadFile(fileConf)
 	if err != nil {
-		log.Fatal("Не удалось прочитать или найти configs.json" + err.Error())
+		var raw models.Log
+		raw.Context = err.Error()
+		raw.Comment = "Чтение конфига приложения"
+		raw.Error("Не удалось прочитать или найти app.json")
+		panic(raw)
 	}
-
 	err = json.Unmarshal(dataFile, &configModel)
 	if err != nil {
-		log.Fatal("Не удалось прочитать конфиг файл configs.json." +
-			"Проверьте правильность написания конфига" + err.Error())
+		var raw models.Log
+		raw.Context = err.Error()
+		raw.Comment = "Чтение конфига приложения"
+		raw.Error("Не удалось прочитать или найти app.json")
+		panic(raw)
 	}
 
-	basesModel := models.Infobases{}
-	pathBases := configPath + "infobases.json"
-	dataFile, err = os.ReadFile(pathBases)
-	if err != nil {
-		log.Fatal("Не удалось прочитать файл конфига infobases.json" + err.Error())
+	engine := gin.Default()
+
+	s := &http.Server{
+		Addr:              ":" + strconv.Itoa(configModel.Port),
+		Handler:           engine,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       10 * time.Second,
 	}
 
-	err = json.Unmarshal(dataFile, &basesModel)
-	if err != nil {
-		log.Fatal("Не удалось расшифровать JSON infobases.json" + err.Error())
-	}
+	groupProxy := engine.Group(api_v1.PathProxy_Proxy)
+	groupProxy.Use(middleware.ValidProxy)
+	initGetPostProxy(groupProxy)
 
-	for _, base := range basesModel.Bases {
+	groupFirtsLevel := groupProxy.Group("/:first")
+	initGetPostProxy(groupFirtsLevel)
 
-		statusChan := make(chan bool)
+	groupSecondLevel := groupFirtsLevel.Group("/:second")
+	initGetPostProxy(groupSecondLevel)
 
-		go initService1CAPI(&base, statusChan)
+	groupThirdLevel := groupSecondLevel.Group("/:third")
+	initGetPostProxy(groupThirdLevel)
 
-		result := <-statusChan
-		if result == false {
-			log.Panic("Не получилось инициализировать подключение в инф.базе " + base.Name)
-		} else {
+	groupFourthLevel := groupThirdLevel.Group("/:fourth")
+	initGetPostProxy(groupFourthLevel)
 
-		}
+	engine.GET("/", handlers.Help)
 
-	}
+	_ = engine.Run(":" + strconv.Itoa(configModel.Port))
+
+	_ = s.ListenAndServe()
 
 }
 
-func initService1CAPI(base *models.Infobase, status chan bool) {
-
+func initGetPostProxy(group *gin.RouterGroup) {
+	group.GET("/", handlers.Proxy)
+	group.POST("/", handlers.Proxy)
 }

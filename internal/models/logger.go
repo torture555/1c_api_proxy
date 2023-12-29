@@ -1,9 +1,10 @@
 package models
 
-import "time"
+import (
+	"log/slog"
+)
 
 type Log struct {
-	Datetime        string `json:"datetime"`        // "2023-11-11 21:55:55"
 	BaseID          int    `json:"baseID"`          // 1C base ID in service
 	BaseName        string `json:"baseName"`        // 1C base name
 	Context         string `json:"context"`         // context request
@@ -12,8 +13,29 @@ type Log struct {
 	Handler         string `json:"handler"`         // if api input handler
 }
 
-func (log *Log) SetDataTime() {
+type LoggerProxy interface {
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
+}
 
-	log.Datetime = time.DateTime
+func (l Log) Info(msg string) {
+	if DB.DB != nil {
+		_ = DB.AddLog(&l, "Info")
+	}
+	slog.Default().Info(msg+": ", "LogObj", l)
+}
 
+func (l Log) Warn(msg string) {
+	if DB.DB != nil {
+		_ = DB.AddLog(&l, "Warn")
+	}
+	slog.Default().Warn(msg+": ", "LogObj", l)
+}
+
+func (l Log) Error(msg string) {
+	if DB.DB != nil {
+		_ = DB.AddLog(&l, "Error")
+	}
+	slog.Default().Error(msg+": ", "LogObj", l)
 }

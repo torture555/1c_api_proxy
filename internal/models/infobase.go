@@ -1,7 +1,7 @@
 package models
 
 type Infobases struct {
-	Bases []Infobase
+	Bases []Infobase `json:"bases"`
 }
 
 type Infobase struct {
@@ -13,7 +13,7 @@ type Infobase struct {
 }
 
 type ServiceInfobase1C struct {
-	Base        []Infobase
+	Base        *Infobase
 	PortService int
 	Status      bool
 }
