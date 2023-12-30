@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func StartRouteProxy(port string) {
+func StartRouteProxy() {
 
 	fileConf := "config/app.json"
 
@@ -64,11 +64,7 @@ func StartRouteProxy(port string) {
 
 	engine.GET("/", handlers.Help)
 
-	if port == "" {
-		port = strconv.Itoa(configModel.Port)
-	}
-
-	_ = engine.Run(":" + port)
+	_ = engine.Run(":" + strconv.Itoa(configModel.Port))
 
 	_ = s.ListenAndServe()
 
