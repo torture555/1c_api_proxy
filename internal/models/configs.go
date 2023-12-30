@@ -1,6 +1,6 @@
 package models
 
-const RetryConnectSeconds = 20
+const RetryConnectSeconds = 5
 const ConstCountFailedConnections = 12000 / RetryConnectSeconds // timeout seconds / retry connections
 
 type ConfService1CAPI struct {

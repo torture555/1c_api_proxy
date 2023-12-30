@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func StartRouteProxy() {
+func StartRouteProxy(port string) {
 
 	fileConf := "config/app.json"
 
@@ -50,10 +50,10 @@ func StartRouteProxy() {
 	groupProxy.Use(middleware.ValidProxy)
 	initGetPostProxy(groupProxy)
 
-	groupFirtsLevel := groupProxy.Group("/:first")
-	initGetPostProxy(groupFirtsLevel)
+	groupFirstLevel := groupProxy.Group("/:first")
+	initGetPostProxy(groupFirstLevel)
 
-	groupSecondLevel := groupFirtsLevel.Group("/:second")
+	groupSecondLevel := groupFirstLevel.Group("/:second")
 	initGetPostProxy(groupSecondLevel)
 
 	groupThirdLevel := groupSecondLevel.Group("/:third")
@@ -64,7 +64,11 @@ func StartRouteProxy() {
 
 	engine.GET("/", handlers.Help)
 
-	_ = engine.Run(":" + strconv.Itoa(configModel.Port))
+	if port == "" {
+		port = strconv.Itoa(configModel.Port)
+	}
+
+	_ = engine.Run(":" + port)
 
 	_ = s.ListenAndServe()
 

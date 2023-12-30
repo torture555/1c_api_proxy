@@ -13,7 +13,6 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 	statusFailedConnection := false
 	secondsToRetry := models.RetryConnectSeconds * time.Second
 	timerRetryConnect := time.NewTimer(secondsToRetry)
-	client := http.Client{}
 	chanStatusFailed := make(chan bool)
 
 	for {
@@ -23,7 +22,7 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 			for countFailed < models.ConstCountFailedConnections {
 				<-timerReconnect.C
 				timerReconnect.Reset(1 * time.Second)
-				pingConnect(&client, thread.Base, chanStatusFailed)
+				pingConnect(thread.Client, thread.Base, chanStatusFailed)
 				res := <-chanStatusFailed
 				if res {
 					statusFailedConnection = false
@@ -36,15 +35,9 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 			}
 		} else {
 			select {
-			case structChan := <-thread.ChanResponseRequest:
-				if structChan.ChanClosed() {
-					timerRetryConnect.Stop()
-					return
-				}
-				go proxyRequest(&client, thread, &structChan)
-
 			case <-timerRetryConnect.C:
-				go pingConnect(&client, thread.Base, chanStatusFailed)
+				timerRetryConnect.Reset(secondsToRetry)
+				go pingConnect(thread.Client, thread.Base, chanStatusFailed)
 
 			case res := <-chanStatusFailed:
 				if !res {
@@ -71,7 +64,7 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 		}.Error("Не удалось сформировать запрос Ping")
 		chanStatusFailed <- false
 	}
-	request.SetBasicAuth(base.Login, base.Password)
+	//request.SetBasicAuth(base.Login, base.Password)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -98,44 +91,51 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 	chanStatusFailed <- result
 }
 
-func proxyRequest(client *http.Client, chanConnect *models.ThreadConnect1C, structChan *models.ModelChanConnect) {
+func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanConnect) {
 
-	path := strings.ReplaceAll(structChan.Request.RequestURI, api_v1.PathProxy_Proxy, "")
+	path := strings.ReplaceAll(structChan.C.Request.RequestURI, api_v1.PathProxy_Proxy, "")
 
-	request, err := http.NewRequest(structChan.Request.Method, chanConnect.Base.URL+path, structChan.Request.Body)
+	request, err := http.NewRequest(structChan.C.Request.Method, thread.Base.URL+path, structChan.C.Request.Body)
 	if err != nil {
 		models.Log{
-			BaseID:   chanConnect.Base.Id,
-			BaseName: chanConnect.Base.Name,
+			BaseID:   thread.Base.Id,
+			BaseName: thread.Base.Name,
 			Context:  err.Error(),
 			InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v",
-				structChan.Request.Method, path, structChan.Request.Header,
-				structChan.Request.Body, structChan.Request.Host),
+				structChan.C.Request.Method, path, structChan.C.Request.Header,
+				structChan.C.Request.Body, structChan.C.Request.Host),
 		}.Error("Не удалось сформировать проксируемый запрос")
 	}
 	//request.SetBasicAuth(chanConnect.Base.Login, chanConnect.Base.Password)
 
-	response, err := client.Do(request)
+	response, err := thread.Client.Do(request)
 	if err != nil {
 		models.Log{
-			BaseID:   chanConnect.Base.Id,
-			BaseName: chanConnect.Base.Name,
+			BaseID:   thread.Base.Id,
+			BaseName: thread.Base.Name,
 			Context:  err.Error(),
 			InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n Код ответа: %v",
-				request.Method, path, request.Header, request.Body, structChan.Request.Host, response.StatusCode),
+				request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode),
 		}.Error("Не удалось получить ответ на проксируемый запрос")
 	}
+	var body []byte
+	header := response.Header.Clone()
+	_, _ = response.Body.Read(body)
+	for i, v := range response.Header.Clone() {
+		structChan.C.Writer.Header().Add(i, v[0])
+	}
 
-	structChan.Response = *response
-	structChan.Result = err == nil
-	chanConnect.ChanResponseRequest <- *structChan
+	structChan.C.JSON(response.StatusCode, body)
+	_ = structChan.C.BindHeader(header)
+	structChan.C.Status(response.StatusCode)
+
 	models.Log{
-		BaseID:   chanConnect.Base.Id,
-		BaseName: chanConnect.Base.Name,
+		BaseID:   thread.Base.Id,
+		BaseName: thread.Base.Name,
 		Context:  "Получен проксируемый ответ",
 		InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n "+
 			"Код ответа: %v\n Заголовок ответа: %v,\n Тело ответа: %v",
-			request.Method, path, request.Header, request.Body, structChan.Request.Host, response.StatusCode,
+			request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode,
 			response.Header, response.Body),
 	}.Info("Произведен проксируемый запрос")
 

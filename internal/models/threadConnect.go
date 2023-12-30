@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
@@ -13,14 +14,14 @@ type connections1C struct {
 type ThreadConnect1C struct {
 	Base                *Infobase
 	ChanResponseRequest chan ModelChanConnect
+	Client              *http.Client
 }
 
 type ModelChanConnect struct {
-	check    bool
-	close    bool
-	Request  http.Request
-	Result   bool
-	Response http.Response
+	check  bool
+	close  bool
+	Result bool
+	C      *gin.Context
 }
 
 func (threads *connections1C) FindThreadConnectByName(name string) *ThreadConnect1C {
@@ -45,10 +46,12 @@ func (threads *connections1C) AddNewThread(base *Infobase) bool {
 	if base.URL == "" || base.Name == "" {
 		return false
 	}
-	newChan := make(chan ModelChanConnect)
+	newChan := make(chan ModelChanConnect, 100)
+	client := http.Client{}
 	thread := ThreadConnect1C{
 		Base:                base,
 		ChanResponseRequest: newChan,
+		Client:              &client,
 	}
 	threads.ThreadConnects = append(threads.ThreadConnects, thread)
 
@@ -60,6 +63,7 @@ func (threads *connections1C) DeleteThread(thread *ThreadConnect1C) bool {
 	closeChan.close = true
 	thread.ChanResponseRequest <- *closeChan
 	close(thread.ChanResponseRequest)
+	thread.Client.CloseIdleConnections()
 	resFind, index := threads.FindIndexThreadByObj(thread)
 	if resFind {
 		threads.ThreadConnects = append(threads.ThreadConnects[:index], threads.ThreadConnects[index+1:]...)
@@ -73,9 +77,8 @@ func (chanConnect *ModelChanConnect) ChanClosed() bool {
 
 func makeEmptyModelChanConnect() *ModelChanConnect {
 	return &ModelChanConnect{
-		close:    false,
-		Request:  http.Request{},
-		Result:   false,
-		Response: http.Response{},
+		close:  false,
+		C:      &gin.Context{},
+		Result: false,
 	}
 }

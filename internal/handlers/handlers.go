@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"1c_api_proxy/internal/models"
+	connection2 "1c_api_proxy/internal/services/connection"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func Proxy(ctx *gin.Context) {
-
-	c := ctx.Copy()
+func Proxy(c *gin.Context) {
 
 	infobaseName := c.GetHeader("infobase")
 	connection := models.Connections.FindThreadConnectByName(infobaseName)
@@ -19,22 +18,9 @@ func Proxy(ctx *gin.Context) {
 		})
 	}
 
-	chanConnect := models.ModelChanConnect{
-		Request: *c.Request,
-	}
+	chanConnect := models.ModelChanConnect{C: c}
 
-	connection.ChanResponseRequest <- chanConnect
-	result := <-connection.ChanResponseRequest
-
-	if !result.Result {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"description": "Не удалось получить ответ от инф.базы",
-		})
-	}
-
-	_ = c.BindHeader(result.Response.Header)
-	_ = c.Bind(result.Response.Body)
-	c.Status(result.Response.StatusCode)
+	connection2.ProxyRequest(connection, &chanConnect)
 
 }
 
