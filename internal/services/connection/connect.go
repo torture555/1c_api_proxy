@@ -4,6 +4,7 @@ import (
 	"1c_api_proxy/internal/models"
 	api_v1 "1c_api_proxy/internal/transport/rest/v1"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -18,12 +19,13 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 	for {
 		if statusFailedConnection {
 			countFailed := 0
-			timerReconnect := time.NewTimer(1 * time.Second)
+			timerReconnect := time.NewTimer(models.RetryConnectSeconds * time.Second)
 			for countFailed < models.ConstCountFailedConnections {
 				<-timerReconnect.C
-				timerReconnect.Reset(1 * time.Second)
-				pingConnect(thread.Client, thread.Base, chanStatusFailed)
+				timerReconnect.Reset(models.RetryConnectSeconds * time.Second)
+				go pingConnect(thread.Client, thread.Base, chanStatusFailed)
 				res := <-chanStatusFailed
+				return
 				if res {
 					statusFailedConnection = false
 					break
@@ -54,7 +56,7 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 
 func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed chan bool) {
 	result := false
-	request, err := http.NewRequest(api_v1.Path1C_PingConnection, base.URL, nil)
+	request, err := http.NewRequest(api_v1.Path1C_PingConnection, base.URL+"/"+api_v1.Path1C_PingConnection, nil)
 	if err != nil {
 		models.Log{
 			BaseID:   base.Id,
@@ -64,7 +66,7 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 		}.Error("Не удалось сформировать запрос Ping")
 		chanStatusFailed <- false
 	}
-	//request.SetBasicAuth(base.Login, base.Password)
+	request.SetBasicAuth(base.Login, base.Password)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -94,7 +96,7 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanConnect) {
 
 	path := strings.ReplaceAll(structChan.C.Request.RequestURI, api_v1.PathProxy_Proxy, "")
-
+	path = strings.ReplaceAll(path, "/"+thread.Base.Name, "")
 	request, err := http.NewRequest(structChan.C.Request.Method, thread.Base.URL+path, structChan.C.Request.Body)
 	if err != nil {
 		models.Log{
@@ -106,8 +108,8 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 				structChan.C.Request.Body, structChan.C.Request.Host),
 		}.Error("Не удалось сформировать проксируемый запрос")
 	}
-	//request.SetBasicAuth(chanConnect.Base.Login, chanConnect.Base.Password)
-
+	request.SetBasicAuth(thread.Base.Login, thread.Base.Password)
+	request.Header = structChan.C.Request.Header.Clone()
 	response, err := thread.Client.Do(request)
 	if err != nil {
 		models.Log{
@@ -118,17 +120,21 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 				request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode),
 		}.Error("Не удалось получить ответ на проксируемый запрос")
 	}
-	var body []byte
-	header := response.Header.Clone()
-	_, _ = response.Body.Read(body)
-	for i, v := range response.Header.Clone() {
-		structChan.C.Writer.Header().Add(i, v[0])
+	body, err := io.ReadAll(response.Body)
+	for i, v := range response.Header {
+		if i != "Date" && i != "Content-Length" {
+			structChan.C.Header(i, v[0])
+		}
 	}
-
-	structChan.C.JSON(response.StatusCode, body)
-	_ = structChan.C.BindHeader(header)
-	structChan.C.Status(response.StatusCode)
-
+	if body != nil {
+		content := response.Header.Get("Content-Type")
+		if content == "" {
+			content = "application/json"
+		}
+		structChan.C.Data(response.StatusCode, content, body)
+	} else {
+		structChan.C.Status(response.StatusCode)
+	}
 	models.Log{
 		BaseID:   thread.Base.Id,
 		BaseName: thread.Base.Name,
@@ -136,7 +142,7 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 		InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n "+
 			"Код ответа: %v\n Заголовок ответа: %v,\n Тело ответа: %v",
 			request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode,
-			response.Header, response.Body),
+			response.Header, string(body)),
 	}.Info("Произведен проксируемый запрос")
 
 }

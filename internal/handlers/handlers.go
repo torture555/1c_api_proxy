@@ -3,16 +3,49 @@ package handlers
 import (
 	"1c_api_proxy/internal/models"
 	connection2 "1c_api_proxy/internal/services/connection"
+	api_v1 "1c_api_proxy/internal/transport/rest/v1"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 )
 
 func Proxy(c *gin.Context) {
 
-	infobaseName := c.GetHeader("infobase")
+	baseName := strings.ReplaceAll(c.Request.RequestURI, api_v1.PathProxy_Proxy, "")
+	baseNameArr := strings.Split(baseName, "/")
+	infobaseName := ""
+	for _, v := range baseNameArr {
+		if v != "" {
+			infobaseName = v
+			break
+		}
+	}
+	if infobaseName == "" {
+		models.Log{
+			BaseID:          0,
+			BaseName:        "?",
+			Context:         fmt.Sprintf("URL: %v", c.Request.URL),
+			InternalContext: "",
+			Comment:         "Не найдена инф.база",
+			Handler:         "/proxy",
+		}.Info("")
+		c.JSON(http.StatusNotFound, gin.H{
+			"description": "Информационная база не найдена",
+		})
+	}
+
 	connection := models.Connections.FindThreadConnectByName(infobaseName)
 
 	if connection == nil {
+		models.Log{
+			BaseID:          0,
+			BaseName:        "?",
+			Context:         fmt.Sprintf("URL: %v", c.Request.URL),
+			InternalContext: "",
+			Comment:         "Не найдена инф.база",
+			Handler:         "/proxy",
+		}.Info("")
 		c.JSON(http.StatusNotFound, gin.H{
 			"description": "Информационная база не найдена",
 		})

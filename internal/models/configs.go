@@ -1,7 +1,7 @@
 package models
 
-const RetryConnectSeconds = 5
-const ConstCountFailedConnections = 12000 / RetryConnectSeconds // timeout seconds / retry connections
+const RetryConnectSeconds = 3
+const ConstCountFailedConnections = 1200 / RetryConnectSeconds // timeout seconds / retry connections
 
 type ConfService1CAPI struct {
 	MinPort int `json:"MinPort"`

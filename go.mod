@@ -1,6 +1,6 @@
 module 1c_api_proxy
 
-go 1.21.1
+go 1.21.6
 
 require (
 	github.com/bytedance/sonic v1.10.1 // indirect

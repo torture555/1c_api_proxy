@@ -2,7 +2,6 @@ package app
 
 import (
 	"1c_api_proxy/internal/handlers"
-	"1c_api_proxy/internal/middleware"
 	"1c_api_proxy/internal/models"
 	api_v1 "1c_api_proxy/internal/transport/rest/v1"
 	"github.com/gin-gonic/gin"
@@ -47,7 +46,7 @@ func StartRouteProxy() {
 	}
 
 	groupProxy := engine.Group(api_v1.PathProxy_Proxy)
-	groupProxy.Use(middleware.ValidProxy)
+	//groupProxy.Use(middleware.ValidProxy)
 	initGetPostProxy(groupProxy)
 
 	groupFirstLevel := groupProxy.Group("/:first")
@@ -61,6 +60,15 @@ func StartRouteProxy() {
 
 	groupFourthLevel := groupThirdLevel.Group("/:fourth")
 	initGetPostProxy(groupFourthLevel)
+
+	groupFifthLevel := groupFourthLevel.Group("/:fifth")
+	initGetPostProxy(groupFifthLevel)
+
+	groupSixthLevel := groupFifthLevel.Group("/:sixth")
+	initGetPostProxy(groupSixthLevel)
+
+	groupSeventhLevel := groupSixthLevel.Group("/:seventh")
+	initGetPostProxy(groupSeventhLevel)
 
 	engine.GET("/", handlers.Help)
 
