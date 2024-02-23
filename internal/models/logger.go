@@ -22,8 +22,8 @@ type LoggerProxy interface {
 }
 
 func (l Log) Info(msg string) {
-	if DB.DB != nil {
-		_ = DB.AddLog(&l, "Info")
+	if DBConnect.IsConnected() {
+		_ = DBConnect.AddLog(&l, "Info")
 	}
 
 	if database.FileLog != nil {
@@ -34,8 +34,8 @@ func (l Log) Info(msg string) {
 }
 
 func (l Log) Warn(msg string) {
-	if DB.DB != nil {
-		_ = DB.AddLog(&l, "Warn")
+	if DBConnect.IsConnected() {
+		_ = DBConnect.AddLog(&l, "Warn")
 	}
 
 	if database.FileLog != nil {
@@ -46,8 +46,8 @@ func (l Log) Warn(msg string) {
 }
 
 func (l Log) Error(msg string) {
-	if DB.DB != nil {
-		_ = DB.AddLog(&l, "Error")
+	if DBConnect.IsConnected() {
+		_ = DBConnect.AddLog(&l, "Error")
 	}
 
 	if database.FileLog != nil {

@@ -46,7 +46,6 @@ func StartRouteProxy() {
 	}
 
 	groupProxy := engine.Group(api_v1.PathProxy_Proxy)
-	//groupProxy.Use(middleware.ValidProxy)
 	initGetPostProxy(groupProxy)
 
 	groupFirstLevel := groupProxy.Group("/:first")

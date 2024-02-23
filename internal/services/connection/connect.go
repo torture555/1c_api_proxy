@@ -58,37 +58,46 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 	result := false
 	request, err := http.NewRequest(api_v1.Path1C_PingConnection, base.URL+"/"+api_v1.Path1C_PingConnection, nil)
 	if err != nil {
-		models.Log{
-			BaseID:   base.Id,
-			BaseName: base.Name,
-			Context:  err.Error(),
-			Handler:  api_v1.Path1C_PingConnection,
-		}.Error("Не удалось сформировать запрос Ping")
+		go func(err error) {
+			models.Log{
+				BaseID:   base.Id,
+				BaseName: base.Name,
+				Context:  err.Error(),
+				Handler:  api_v1.Path1C_PingConnection,
+				Comment:  "Не удалось сформировать запрос Ping",
+			}.Error("Не удалось сформировать запрос Ping")
+		}(err)
 		chanStatusFailed <- false
 	}
 	request.SetBasicAuth(base.Login, base.Password)
 
 	response, err := client.Do(request)
 	if err != nil {
-		models.Log{
-			BaseID:          base.Id,
-			BaseName:        base.Name,
-			Context:         err.Error(),
-			InternalContext: response.Status,
-			Handler:         api_v1.Path1C_PingConnection,
-		}.Error("Не удалось получить ответ на запрос Ping")
+		go func(err error) {
+			models.Log{
+				BaseID:          base.Id,
+				BaseName:        base.Name,
+				Context:         err.Error(),
+				InternalContext: response.Status,
+				Handler:         api_v1.Path1C_PingConnection,
+				Comment:         "Не удалось получить ответ на запрос Ping",
+			}.Error("Не удалось получить ответ на запрос Ping")
+		}(err)
 		chanStatusFailed <- false
 	}
 
 	if response.StatusCode == http.StatusOK {
 		result = true
 	} else {
-		models.Log{
-			BaseID:   base.Id,
-			BaseName: base.Name,
-			Context:  response.Status,
-			Handler:  api_v1.Path1C_PingConnection,
-		}.Warn("Получен неудачный ответ на Ping")
+		go func(status string) {
+			models.Log{
+				BaseID:   base.Id,
+				BaseName: base.Name,
+				Context:  status,
+				Handler:  api_v1.Path1C_PingConnection,
+				Comment:  "Получен неудачный ответ на Ping",
+			}.Warn("Получен неудачный ответ на Ping")
+		}(response.Status)
 	}
 	chanStatusFailed <- result
 }
@@ -99,26 +108,34 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 	path = strings.ReplaceAll(path, "/"+thread.Base.Name, "")
 	request, err := http.NewRequest(structChan.C.Request.Method, thread.Base.URL+path, structChan.C.Request.Body)
 	if err != nil {
-		models.Log{
-			BaseID:   thread.Base.Id,
-			BaseName: thread.Base.Name,
-			Context:  err.Error(),
-			InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v",
-				structChan.C.Request.Method, path, structChan.C.Request.Header,
-				structChan.C.Request.Body, structChan.C.Request.Host),
-		}.Error("Не удалось сформировать проксируемый запрос")
+		comment := fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v",
+			structChan.C.Request.Method, path, structChan.C.Request.Header,
+			structChan.C.Request.Body, structChan.C.Request.Host)
+		go func(comment string, err error) {
+			models.Log{
+				BaseID:   thread.Base.Id,
+				BaseName: thread.Base.Name,
+				Context:  err.Error(),
+				Comment:  comment,
+			}.Error("Не удалось сформировать проксируемый запрос")
+		}(comment, err)
+		return
 	}
 	request.SetBasicAuth(thread.Base.Login, thread.Base.Password)
 	request.Header = structChan.C.Request.Header.Clone()
 	response, err := thread.Client.Do(request)
 	if err != nil {
-		models.Log{
-			BaseID:   thread.Base.Id,
-			BaseName: thread.Base.Name,
-			Context:  err.Error(),
-			InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n Код ответа: %v",
-				request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode),
-		}.Error("Не удалось получить ответ на проксируемый запрос")
+		comment := fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n Код ответа: %v",
+			request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode)
+		go func(comment string) {
+			models.Log{
+				BaseID:   thread.Base.Id,
+				BaseName: thread.Base.Name,
+				Context:  err.Error(),
+				Comment:  comment,
+			}.Error("Не удалось получить ответ на проксируемый запрос")
+		}(comment)
+		return
 	}
 	body, err := io.ReadAll(response.Body)
 	for i, v := range response.Header {
@@ -135,14 +152,18 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 	} else {
 		structChan.C.Status(response.StatusCode)
 	}
-	models.Log{
-		BaseID:   thread.Base.Id,
-		BaseName: thread.Base.Name,
-		Context:  "Получен проксируемый ответ",
-		InternalContext: fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n "+
-			"Код ответа: %v\n Заголовок ответа: %v,\n Тело ответа: %v",
-			request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode,
-			response.Header, string(body)),
-	}.Info("Произведен проксируемый запрос")
+
+	comment := fmt.Sprintf("Метод: %v,\n Путь: %v,\n Заголовок: %v,\n Тело: %v,\n Источник: %v,\n "+
+		"Код ответа: %v\n Заголовок ответа: %v,\n Тело ответа: %v",
+		request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode,
+		response.Header, string(body))
+	go func(comment string) {
+		models.Log{
+			BaseID:   thread.Base.Id,
+			BaseName: thread.Base.Name,
+			Context:  "Получен проксируемый ответ",
+			Comment:  comment,
+		}.Info("Произведен проксируемый запрос")
+	}(comment)
 
 }

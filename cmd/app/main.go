@@ -6,7 +6,7 @@ import (
 
 func main() {
 
-	//app.StartConnectionSQL()
+	app.StartConnectionSQL()
 
 	app.StartLogger()
 
