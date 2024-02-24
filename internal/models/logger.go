@@ -7,12 +7,10 @@ import (
 )
 
 type Log struct {
-	BaseID          int    `json:"baseID"`          // 1C base ID in service
-	BaseName        string `json:"baseName"`        // 1C base name
-	Context         string `json:"context"`         // context request
-	InternalContext string `json:"internalContext"` // context service
-	Comment         string `json:"comment"`         // text request
-	Handler         string `json:"handler"`         // if api input handler
+	BaseName string `json:"baseName"` // 1C base name
+	Context  string `json:"context"`  // context request
+	Comment  string `json:"comment"`  // text request
+	Handler  string `json:"handler"`  // if api input handler
 }
 
 type LoggerProxy interface {

@@ -2,42 +2,20 @@ package app
 
 import (
 	"1c_api_proxy/internal/handlers"
-	"1c_api_proxy/internal/models"
 	api_v1 "1c_api_proxy/internal/transport/rest/v1"
 	"github.com/gin-gonic/gin"
-	"github.com/goccy/go-json"
 	"net/http"
-	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
-func StartRouteProxy() {
-
-	fileConf := "config/app.json"
-
-	configModel := models.ConfApp{}
-	dataFile, err := os.ReadFile(fileConf)
-	if err != nil {
-		var raw models.Log
-		raw.Context = err.Error()
-		raw.Comment = "Чтение конфига приложения"
-		raw.Error("Не удалось прочитать или найти app.json")
-		panic(raw)
-	}
-	err = json.Unmarshal(dataFile, &configModel)
-	if err != nil {
-		var raw models.Log
-		raw.Context = err.Error()
-		raw.Comment = "Чтение конфига приложения"
-		raw.Error("Не удалось прочитать или найти app.json")
-		panic(raw)
-	}
+func StartRouteProxy(wg *sync.WaitGroup) {
 
 	engine := gin.Default()
 
 	s := &http.Server{
-		Addr:              ":" + strconv.Itoa(configModel.Port),
+		Addr:              ":" + strconv.Itoa(10000),
 		Handler:           engine,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -71,9 +49,13 @@ func StartRouteProxy() {
 
 	engine.GET("/", handlers.Help)
 
-	_ = engine.Run(":" + strconv.Itoa(configModel.Port))
+	err := engine.Run(":" + strconv.Itoa(10000))
 
-	_ = s.ListenAndServe()
+	err = s.ListenAndServe()
+
+	if err != nil {
+		wg.Done()
+	}
 
 }
 

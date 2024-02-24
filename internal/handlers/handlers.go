@@ -23,12 +23,10 @@ func Proxy(c *gin.Context) {
 	}
 	if infobaseName == "" {
 		models.Log{
-			BaseID:          0,
-			BaseName:        "?",
-			Context:         fmt.Sprintf("URL: %v", c.Request.URL),
-			InternalContext: "",
-			Comment:         "Не найдена инф.база",
-			Handler:         "/proxy",
+			BaseName: "?",
+			Context:  fmt.Sprintf("URL: %v", c.Request.URL),
+			Comment:  "Не найдена инф.база",
+			Handler:  "/proxy",
 		}.Info("")
 		c.JSON(http.StatusNotFound, gin.H{
 			"description": "Информационная база не найдена",
@@ -39,12 +37,10 @@ func Proxy(c *gin.Context) {
 
 	if connection == nil {
 		models.Log{
-			BaseID:          0,
-			BaseName:        "?",
-			Context:         fmt.Sprintf("URL: %v", c.Request.URL),
-			InternalContext: "",
-			Comment:         "Не найдена инф.база",
-			Handler:         "/proxy",
+			BaseName: "?",
+			Context:  fmt.Sprintf("URL: %v", c.Request.URL),
+			Comment:  "Не найдена инф.база",
+			Handler:  "/proxy",
 		}.Info("")
 		c.JSON(http.StatusNotFound, gin.H{
 			"description": "Информационная база не найдена",
@@ -61,9 +57,9 @@ func Help(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"result": "ok",
-		"message": "Сервис прокси для информационных баз 1С. Релиз 0.0.1 (альфа) \n " +
-			"Используйте /proxy/: чтобы сделать запрос \n обязательно в заголовок укажите параметр" +
-			" 'infobase' с именем информационной базы",
+		"message": "Сервис прокси для информационных баз 1С. Релиз 0.1.0 (Альфа) \n " +
+			"Используйте /proxy/<Имя базы>/... : чтобы сделать запрос, укажите имя инфомационной базы \n" +
+			"Для администрирования обратитесь через браузер по порту фронт приложения (по умолчанию порт 11021)",
 	})
 
 }

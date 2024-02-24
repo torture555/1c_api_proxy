@@ -46,6 +46,16 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 					statusFailedConnection = true
 				}
 
+			case res := <-thread.ChanResponseRequest:
+				if res.Check {
+					res.Close = false
+					thread.ChanResponseRequest <- res
+				} else if res.Close {
+					res.Close = true
+					thread.ChanResponseRequest <- res
+					return
+				}
+
 			default:
 
 			}
@@ -60,7 +70,6 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 	if err != nil {
 		go func(err error) {
 			models.Log{
-				BaseID:   base.Id,
 				BaseName: base.Name,
 				Context:  err.Error(),
 				Handler:  api_v1.Path1C_PingConnection,
@@ -75,12 +84,10 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 	if err != nil {
 		go func(err error) {
 			models.Log{
-				BaseID:          base.Id,
-				BaseName:        base.Name,
-				Context:         err.Error(),
-				InternalContext: response.Status,
-				Handler:         api_v1.Path1C_PingConnection,
-				Comment:         "Не удалось получить ответ на запрос Ping",
+				BaseName: base.Name,
+				Context:  err.Error(),
+				Handler:  api_v1.Path1C_PingConnection,
+				Comment:  "Не удалось получить ответ на запрос Ping",
 			}.Error("Не удалось получить ответ на запрос Ping")
 		}(err)
 		chanStatusFailed <- false
@@ -91,7 +98,6 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 	} else {
 		go func(status string) {
 			models.Log{
-				BaseID:   base.Id,
 				BaseName: base.Name,
 				Context:  status,
 				Handler:  api_v1.Path1C_PingConnection,
@@ -113,9 +119,9 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 			structChan.C.Request.Body, structChan.C.Request.Host)
 		go func(comment string, err error) {
 			models.Log{
-				BaseID:   thread.Base.Id,
 				BaseName: thread.Base.Name,
 				Context:  err.Error(),
+				Handler:  path,
 				Comment:  comment,
 			}.Error("Не удалось сформировать проксируемый запрос")
 		}(comment, err)
@@ -129,9 +135,9 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 			request.Method, path, request.Header, request.Body, structChan.C.Request.Host, response.StatusCode)
 		go func(comment string) {
 			models.Log{
-				BaseID:   thread.Base.Id,
 				BaseName: thread.Base.Name,
 				Context:  err.Error(),
+				Handler:  path,
 				Comment:  comment,
 			}.Error("Не удалось получить ответ на проксируемый запрос")
 		}(comment)
@@ -159,11 +165,36 @@ func ProxyRequest(thread *models.ThreadConnect1C, structChan *models.ModelChanCo
 		response.Header, string(body))
 	go func(comment string) {
 		models.Log{
-			BaseID:   thread.Base.Id,
 			BaseName: thread.Base.Name,
 			Context:  "Получен проксируемый ответ",
+			Handler:  path,
 			Comment:  comment,
 		}.Info("Произведен проксируемый запрос")
 	}(comment)
 
+}
+
+func InitService1CAPI(base *models.Infobase) bool {
+
+	res := models.Connections.AddNewThread(base)
+
+	if res {
+		go ConnectLoop(models.Connections.FindThreadConnectByName(base.Name))
+		models.Log{
+			BaseName: base.Name,
+			Comment:  "Инициализировано соеденине с информационной базой",
+		}.Info("Инициализировано соеденине с информационной базой")
+		return true
+	} else {
+		models.Log{
+			BaseName: base.Name,
+			Comment:  "Не удалось инициализировать соединение с информационной базой",
+		}.Warn("Не удалось инициализировать соединение с информационной базой")
+		return false
+	}
+
+}
+
+func RestartLoop(thread *models.ThreadConnect1C) {
+	go ConnectLoop(thread)
 }

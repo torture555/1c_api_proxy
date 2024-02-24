@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func StartLogger() {
+func StartFileLogger() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		AddSource: true,

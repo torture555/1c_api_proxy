@@ -24,27 +24,8 @@ func StartServices1CAPI() {
 
 	for _, base := range basesModel.Bases {
 
-		initService1CAPI(&base)
+		connection.InitService1CAPI(&base)
 
-	}
-
-}
-
-func initService1CAPI(base *models.Infobase) {
-
-	res := models.Connections.AddNewThread(base)
-
-	if res {
-		go connection.ConnectLoop(models.Connections.FindThreadConnectByName(base.Name))
-		models.Log{
-			BaseID:   base.Id,
-			BaseName: base.Name,
-		}.Info("Инициализировано соеденине с информационной базой")
-	} else {
-		models.Log{
-			BaseID:   base.Id,
-			BaseName: base.Name,
-		}.Warn("Не удалось инициализировать соединение с информационной базой")
 	}
 
 }

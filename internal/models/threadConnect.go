@@ -1,14 +1,17 @@
 package models
 
 import (
+	"bufio"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"os"
 )
 
 var Connections connections1C
 
 type connections1C struct {
-	ThreadConnects []ThreadConnect1C
+	ThreadConnects map[string]ThreadConnect1C
 }
 
 type ThreadConnect1C struct {
@@ -18,28 +21,20 @@ type ThreadConnect1C struct {
 }
 
 type ModelChanConnect struct {
-	check  bool
-	close  bool
+	Check  bool
+	Close  bool
 	Result bool
 	C      *gin.Context
 }
 
 func (threads *connections1C) FindThreadConnectByName(name string) *ThreadConnect1C {
-	for _, val := range threads.ThreadConnects {
-		if val.Base.Name == name {
-			return &val
-		}
-	}
-	return nil
-}
+	res := threads.ThreadConnects[name]
 
-func (threads *connections1C) FindIndexThreadByObj(thread *ThreadConnect1C) (bool, int) {
-	for i, val := range threads.ThreadConnects {
-		if &val == thread {
-			return true, i
-		}
+	if res.Base == nil {
+		return nil
 	}
-	return false, 0
+
+	return &res
 }
 
 func (threads *connections1C) AddNewThread(base *Infobase) bool {
@@ -53,32 +48,120 @@ func (threads *connections1C) AddNewThread(base *Infobase) bool {
 		ChanResponseRequest: newChan,
 		Client:              &client,
 	}
-	threads.ThreadConnects = append(threads.ThreadConnects, thread)
+
+	threads.ThreadConnects[base.Name] = thread
+
+	go ReplaceConfigInfobases()
+
+	return true
+}
+
+func (threads *connections1C) EditThread(base *Infobase) bool {
+
+	findThread := threads.FindThreadConnectByName(base.Name)
+	if findThread == nil {
+		return false
+	}
+
+	findThread.Base = base
+
+	go ReplaceConfigInfobases()
 
 	return true
 }
 
 func (threads *connections1C) DeleteThread(thread *ThreadConnect1C) bool {
-	closeChan := makeEmptyModelChanConnect()
-	closeChan.close = true
-	thread.ChanResponseRequest <- *closeChan
+	thread.CloseLoop()
 	close(thread.ChanResponseRequest)
 	thread.Client.CloseIdleConnections()
-	resFind, index := threads.FindIndexThreadByObj(thread)
-	if resFind {
-		threads.ThreadConnects = append(threads.ThreadConnects[:index], threads.ThreadConnects[index+1:]...)
-	}
+
+	delete(threads.ThreadConnects, thread.Base.Name)
+
+	go ReplaceConfigInfobases()
+
 	return true
 }
 
-func (chanConnect *ModelChanConnect) ChanClosed() bool {
-	return chanConnect.close
+func (threads *connections1C) GetInfobasesList() *Infobases {
+
+	list := Infobases{}
+
+	for k, v := range threads.ThreadConnects {
+		list.Bases = append(list.Bases, Infobase{
+			Name:     k,
+			URL:      v.Base.URL,
+			Login:    v.Base.Login,
+			Password: "",
+		})
+	}
+
+	return &list
+
+}
+
+func (thread *ThreadConnect1C) ChanIsClosed() bool {
+	model := makeEmptyModelChanConnect()
+	model.Check = true
+	thread.ChanResponseRequest <- *model
+	res, ok := <-thread.ChanResponseRequest
+	if !ok {
+		return ok
+	} else {
+		return res.Close || ok
+	}
+}
+
+func (thread *ThreadConnect1C) CloseLoop() {
+	model := makeEmptyModelChanConnect()
+	thread.ChanResponseRequest <- *model
 }
 
 func makeEmptyModelChanConnect() *ModelChanConnect {
 	return &ModelChanConnect{
-		close:  false,
+		Check:  false,
+		Close:  true,
 		C:      &gin.Context{},
 		Result: false,
 	}
+}
+
+func ReplaceConfigInfobases() bool {
+
+	databaseConf, err := os.OpenFile("config/infobases.json", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
+	if err != nil {
+		return false
+	}
+	defer databaseConf.Close()
+
+	writer := bufio.NewWriter(databaseConf)
+	_, err = writer.Write([]byte{})
+	if err != nil {
+		Log{
+			Context: err.Error(),
+			Comment: "Не удалось очистить файл infobases.json",
+		}.Error("Не удалось очистить файл infobases.json")
+		return false
+	}
+
+	model := Connections.GetInfobasesList()
+
+	newText, err := json.Marshal(*model)
+	if err != nil {
+		Log{
+			Context: err.Error(),
+			Comment: "Не удалось преобразовать список баз в JSON",
+		}.Error("Не удалось преобразовать список баз в JSON")
+	}
+
+	_, err = writer.Write(newText)
+	if err != nil {
+		Log{
+			Context: err.Error(),
+			Comment: "Не удалось записать новый список в файл infobases.json",
+		}.Error("Не удалось записать новый список в файл infobases.json")
+		return false
+	}
+
+	return true
+
 }
