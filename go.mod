@@ -1,6 +1,6 @@
 module 1c_api_proxy
 
-go 1.21.6
+go 1.22
 
 require (
 	github.com/ClickHouse/ch-go v0.61.3 // indirect
