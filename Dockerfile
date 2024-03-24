@@ -1,7 +1,7 @@
 FROM node:latest as builderNpm
 LABEL author="Pavel" name="Proxy 1C API" version="0.1.0"
 WORKDIR /app
-COPY /public/front/ ./
+COPY /client/front/ ./
 ENTRYPOINT ["top", "-b"]
 RUN npm install
 RUN npm run build
@@ -11,10 +11,11 @@ RUN npm run build
 FROM golang:1.22
 WORKDIR /app
 COPY / ./
-COPY --from=builderNpm /app/dist ./
+COPY --from=builderNpm /app/dist ./dist
 RUN go build /app/cmd/app/main.go
 
 EXPOSE 10000
+EXPOSE 10001
 EXPOSE 11021
 
-RUN ./main
+CMD "./main"

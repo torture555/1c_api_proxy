@@ -1,11 +1,12 @@
 package models
 
 import (
-	"bufio"
+	"1c_api_proxy/internal/transport/rest/front"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
+	"time"
 )
 
 var Connections connections1C
@@ -41,8 +42,10 @@ func (threads *connections1C) AddNewThread(base *Infobase) bool {
 	if base.URL == "" || base.Name == "" {
 		return false
 	}
-	newChan := make(chan ModelChanConnect, 100)
-	client := http.Client{}
+	newChan := make(chan ModelChanConnect)
+	client := http.Client{
+		Timeout: 2 * time.Second,
+	}
 	thread := ThreadConnect1C{
 		Base:                base,
 		ChanResponseRequest: newChan,
@@ -107,7 +110,11 @@ func (thread *ThreadConnect1C) ChanIsClosed() bool {
 	if !ok {
 		return ok
 	} else {
-		return res.Close || ok
+		if ok {
+			return res.Close
+		} else {
+			return ok
+		}
 	}
 }
 
@@ -127,38 +134,40 @@ func makeEmptyModelChanConnect() *ModelChanConnect {
 
 func ReplaceConfigInfobases() bool {
 
-	databaseConf, err := os.OpenFile("config/infobases.json", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
+	err := os.Truncate("config/infobases.json", 0)
+	if err != nil {
+		Log{
+			Context: err.Error(),
+			Comment: "Не удалось очистить хралищие данных подключения к БД",
+			Handler: front.Database + "/" + front.SetDBParams,
+		}.Error("Не удалось очистить хранилище данных подключения к БД")
+		return false
+	}
+
+	databaseConf, err := os.OpenFile("config/infobases.json", os.O_APPEND|os.O_RDWR|os.O_CREATE, os.ModeAppend)
 	if err != nil {
 		return false
 	}
 	defer databaseConf.Close()
 
-	writer := bufio.NewWriter(databaseConf)
-	_, err = writer.Write([]byte{})
-	if err != nil {
-		Log{
-			Context: err.Error(),
-			Comment: "Не удалось очистить файл infobases.json",
-		}.Error("Не удалось очистить файл infobases.json")
-		return false
-	}
-
 	model := Connections.GetInfobasesList()
-
 	newText, err := json.Marshal(*model)
 	if err != nil {
+		writeEmptyParams()
 		Log{
 			Context: err.Error(),
-			Comment: "Не удалось преобразовать список баз в JSON",
-		}.Error("Не удалось преобразовать список баз в JSON")
+			Comment: "Не удалось преобразовать настройки БД в формат JSON",
+		}.Error("Не удалось преобразовать настройки БД в формат JSON")
+
 	}
 
-	_, err = writer.Write(newText)
+	_, err = databaseConf.Write(newText)
 	if err != nil {
+		writeEmptyParams()
 		Log{
 			Context: err.Error(),
-			Comment: "Не удалось записать новый список в файл infobases.json",
-		}.Error("Не удалось записать новый список в файл infobases.json")
+			Comment: "Не удалось записать настройки БД в файл database.json",
+		}.Error("Не удалось записать настройки БД в файл database.json")
 		return false
 	}
 

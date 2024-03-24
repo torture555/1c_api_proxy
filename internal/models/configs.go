@@ -8,8 +8,5 @@ type ConfSQL struct {
 	Port     string `json:"port"`
 	Login    string `json:"login"`
 	Password string `json:"password"`
-}
-
-type ConfApp struct {
-	Port int `json:"port"`
+	DBName   string `json:"DBName"`
 }

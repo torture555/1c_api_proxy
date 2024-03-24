@@ -10,7 +10,3 @@ type Infobase struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
-
-type InfobaseForSearch struct {
-	Name string `json:"name"`
-}

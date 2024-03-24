@@ -6,6 +6,7 @@ package front
 const Database = "db"
 
 // second level
+const GetDBParams = "get"
 const SetDBParams = "set"
 const StatusDB = "status"
 

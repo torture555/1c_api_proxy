@@ -22,6 +22,8 @@ func StartServices1CAPI() {
 		log.Fatal("Не удалось расшифровать JSON infobases.json" + err.Error())
 	}
 
+	models.Connections.ThreadConnects = make(map[string]models.ThreadConnect1C)
+
 	for _, base := range basesModel.Bases {
 
 		connection.InitService1CAPI(&base)

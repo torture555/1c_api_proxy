@@ -17,50 +17,59 @@ func ConnectLoop(thread *models.ThreadConnect1C) {
 	chanStatusFailed := make(chan bool)
 
 	for {
-		if statusFailedConnection {
-			countFailed := 0
-			timerReconnect := time.NewTimer(models.RetryConnectSeconds * time.Second)
-			for countFailed < models.ConstCountFailedConnections {
-				<-timerReconnect.C
-				timerReconnect.Reset(models.RetryConnectSeconds * time.Second)
-				go pingConnect(thread.Client, thread.Base, chanStatusFailed)
-				res := <-chanStatusFailed
+		select {
+		case res := <-thread.ChanResponseRequest:
+			if res.Check {
+				res.Close = false || statusFailedConnection
+				thread.ChanResponseRequest <- res
+			} else if res.Close {
+				res.Close = true
+				thread.ChanResponseRequest <- res
 				return
-				if res {
-					statusFailedConnection = false
-					break
-				}
-				countFailed++
 			}
+		default:
 			if statusFailedConnection {
-				return
-			}
-		} else {
-			select {
-			case <-timerRetryConnect.C:
-				timerRetryConnect.Reset(secondsToRetry)
-				go pingConnect(thread.Client, thread.Base, chanStatusFailed)
-
-			case res := <-chanStatusFailed:
-				if !res {
-					statusFailedConnection = true
+				countFailed := 0
+				timerReconnect := time.NewTimer(models.RetryConnectSeconds * time.Second)
+				for countFailed < models.ConstCountFailedConnections {
+					<-timerReconnect.C
+					timerReconnect.Reset(models.RetryConnectSeconds * time.Second)
+					go pingConnect(thread.Client, thread.Base, chanStatusFailed)
+					res := <-chanStatusFailed
+					return
+					if res {
+						statusFailedConnection = false
+						break
+					}
+					countFailed++
 				}
-
-			case res := <-thread.ChanResponseRequest:
-				if res.Check {
-					res.Close = false
-					thread.ChanResponseRequest <- res
-				} else if res.Close {
-					res.Close = true
-					thread.ChanResponseRequest <- res
+				if statusFailedConnection {
+					close(thread.ChanResponseRequest)
 					return
 				}
+			} else {
+				select {
+				case <-timerRetryConnect.C:
+					timerRetryConnect.Reset(secondsToRetry)
+					go pingConnect(thread.Client, thread.Base, chanStatusFailed)
 
-			default:
-
+				case res := <-chanStatusFailed:
+					if !res {
+						statusFailedConnection = true
+					}
+				case res := <-thread.ChanResponseRequest:
+					if res.Check {
+						res.Close = false || statusFailedConnection
+						thread.ChanResponseRequest <- res
+					} else if res.Close {
+						res.Close = true
+						thread.ChanResponseRequest <- res
+						return
+					}
+				}
 			}
-		}
 
+		}
 	}
 }
 
@@ -77,6 +86,7 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 			}.Error("Не удалось сформировать запрос Ping")
 		}(err)
 		chanStatusFailed <- false
+		return
 	}
 	request.SetBasicAuth(base.Login, base.Password)
 
@@ -91,11 +101,17 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 			}.Error("Не удалось получить ответ на запрос Ping")
 		}(err)
 		chanStatusFailed <- false
+		return
 	}
 
-	if response.StatusCode == http.StatusOK {
+	if response != nil && response.StatusCode > 0 {
 		result = true
+
 	} else {
+		status := "unknown"
+		if response != nil {
+			status = response.Status
+		}
 		go func(status string) {
 			models.Log{
 				BaseName: base.Name,
@@ -103,7 +119,7 @@ func pingConnect(client *http.Client, base *models.Infobase, chanStatusFailed ch
 				Handler:  api_v1.Path1C_PingConnection,
 				Comment:  "Получен неудачный ответ на Ping",
 			}.Warn("Получен неудачный ответ на Ping")
-		}(response.Status)
+		}(status)
 	}
 	chanStatusFailed <- result
 }
@@ -196,5 +212,6 @@ func InitService1CAPI(base *models.Infobase) bool {
 }
 
 func RestartLoop(thread *models.ThreadConnect1C) {
+	thread.ChanResponseRequest = make(chan models.ModelChanConnect)
 	go ConnectLoop(thread)
 }

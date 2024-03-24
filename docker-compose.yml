@@ -1,0 +1,20 @@
+
+services:
+  mysql:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: mypass1
+      POSTGRES_USER: psuser
+      POSTGRES_DB: proxy
+
+  proxysrv:
+    build: .
+    image: 1c_api_proxy:proxy
+    restart: always
+    ports:
+      - "10000:10000"
+      - "11021:11021"
+      - "10001:10001"

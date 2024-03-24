@@ -1,0 +1,403 @@
+openapi: 3.0.3
+info:
+  title: Swagger Proxy Api 1C - OpenAPI 3.0
+  description: |-
+    Описание REST API интерфейса прокси сервиса для информационных баз 1С.
+    Данный интерфейс предназначен для администрирования сервиса
+  termsOfService: http://swagger.io/terms/
+  contact:
+    email: pashast1999@gmail.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+externalDocs:
+  description: Find out more about Swagger
+  url: http://swagger.io
+servers:
+  - url: http://localhost:10001
+paths:
+  /infobase:
+    get:
+      tags:
+        - Infobase
+      summary: Получение списка информационных баз
+      description: Получение списка информационных баз
+      operationId: GetInfobases
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Infobases'   
+  /infobase/add:
+    post:
+      tags:
+        - Infobase
+      summary: Добавление новой информационной базы
+      description: Добавление новой информационной базы
+      operationId: AddInfobase
+      requestBody:
+        description: Новая информационная база
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Infobase'
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+        '500':
+          description: Ошибка на стороне сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription'
+  /infobase/edit:
+    post:
+      tags:
+        - Infobase
+      summary: Изменение существующей информационной базы
+      description: Изменение существующей информационной базы
+      operationId: EditInfobase
+      requestBody:
+        description: Существующая информационная база
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Infobase'
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+        '500':
+          description: Ошибка на стороне сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription'
+  /infobase/delete:
+    get:
+      tags:
+        - Infobase
+      summary: Удалить информационную базу
+      description: Удалить информационную базу
+      operationId: DeleteInfobase
+      parameters:
+        - name: Infobase
+          in: query
+          description: Имя информационной базы
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription' 
+        '500':
+          description: Ошибка на стороне сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription'
+  /infobase/status:
+    get:
+      tags:
+        - Infobase
+      summary: Получить статус подключения информационной базы
+      description: Получить статус подключения информационной базы
+      operationId: GetInfobaseStatus
+      parameters:
+        - name: Infobase
+          in: header
+          description: Имя информационной базы
+          required: true
+          schema:
+            type: string
+            example: ULS
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription' 
+        '408':
+          description: Превышено ожидание обработки запроса
+        '500':
+          description: Ошибка на стороне сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription'
+  /infobase/reload:
+    get:
+      tags:
+        - Infobase
+      summary: Перезапустить подключение к информационной базе
+      description: Перезапустить подключение к информационной базе
+      operationId: ReloadInfobaseStatus
+      parameters:
+        - name: Infobase
+          in: header
+          description: Имя информационной базы
+          required: true
+          schema:
+            type: string
+            example: ULS
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription' 
+        '408':
+          description: Превышено ожидание обработки запроса
+  /log/get:
+    get:
+      tags:
+        - Logs
+      summary: Получить записи логов
+      description: Получить последние 200 записей логов
+      operationId: GetLogs
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Logs'
+  /db/status:
+    get:
+      tags:
+        - Database
+      summary: Получить статус подключения БД
+      description: Получить статус подключения БД
+      operationId: GetDBStatus
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+  /db/get:
+    get:
+      tags:
+        - Database
+      summary: Получить данные подключения к СУБД
+      description: Получить данные подключения к СУБД
+      operationId: GetDBParam
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigSQLResponse'
+  /db/set:
+    post:
+      tags:
+        - Database
+      summary: Установить данные подключения к СУБД
+      description: Установить данные подключения к СУБД
+      operationId: SetDBParam
+      requestBody:
+        description: Данные подключения к СУБД
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigSQL'
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'    
+        '400':
+          description: Не верно указан запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription' 
+        '500':
+          description: Ошибка на стороне сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultWithDescription'
+components:
+  schemas:
+    ConfigSQL:
+      type: object
+      properties:
+        host:
+          type: string
+          description:  Адрес СУБД Postgres
+          example: 192.168.123.12
+        port:
+          type: string
+          example: 5432
+        login:
+          type: string
+          description:  Логин пользователя СУБД
+          example: root
+        password:
+          type: string
+          description:  Пароль пользователя СУБД
+          example: root
+        DBName:
+          type: string
+          description:  Имя используемой БД, заранее созданной
+          example: proxy
+    ConfigSQLResponse:
+      type: object
+      properties:
+        host:
+          type: string
+          description:  Адрес СУБД Postgres
+          example: 192.168.123.12
+        port:
+          type: string
+          example: 5432
+        login:
+          type: string
+          description:  Логин пользователя СУБД
+          example: root
+        DBName:
+          type: string
+          description:  Имя используемой БД, заранее созданной
+          example: proxy
+    Infobase:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Имя информационной базы, он же является идентификатором
+          example: ULS
+        URL:
+          type: string
+          description: Путь к HTTP-сервису информационной базы
+          example: http://localhost/ULS/hs/api
+        login:
+          type: string
+          description: Имя пользователя информационной базы
+          example: Администратор
+        password:
+          type: string
+          description: Пароль пользователя информационной базы
+          example: super_secret_password
+    InfobaseResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Имя информационной базы, он же является идентификатором
+          example: ULS
+        URL:
+          type: string
+          description: Путь к HTTP-сервису информационной базы
+          example: http://localhost/ULS/hs/api
+        login:
+          type: string
+          description: Имя пользователя информационной базы
+          example: Администратор
+    Infobases:
+      type: object
+      properties:
+        bases:
+          type: array
+          description: Массив информационных баз
+          items: 
+            $ref: '#/components/schemas/InfobaseResponse'
+    Result:
+      type: object
+      properties:
+        result:
+          type: boolean
+          description: Результат выполнения
+    ResultWithDescription:
+      type: object
+      properties:
+        result:
+          type: boolean
+          description: Результат выполнения
+          example: false
+        description:
+          type: string
+          example: Не удалось прочитать тело запроса
+          description: Описание выполнения
+    LogRaw:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Дата и время записи лога
+          example: "2024-03-22 10:06:07.358820"
+        base_name:
+          type: string
+          description: Имя информационной базы
+          example: ULS
+        context:
+          type: string
+          description: Контекст записи лога
+          example: "500 Internal server error"
+        handler:
+          type: string
+          description: URI обработчика при записи лога
+          example: infobase/status
+        comment:
+          type: string
+          description: Дополнительный комментарий к записи
+          example: Не удалось получить ответ на запрос Ping
+        level:
+          type: string
+          enum:
+            - Info
+            - Warn
+            - Error
+          description: Уровень записи лога
+    Logs:
+      type: object
+      properties:
+        l:
+          type: array
+          description: Массив записей логов
+          items: 
+            $ref: '#/components/schemas/LogRaw'
+requestBodies:
+    

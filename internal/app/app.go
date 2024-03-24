@@ -2,9 +2,10 @@ package app
 
 import (
 	"1c_api_proxy/internal/handlers"
+	"1c_api_proxy/internal/middleware"
 	api_v1 "1c_api_proxy/internal/transport/rest/v1"
+	timeout "github.com/cyj19/gin-timeout"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -14,14 +15,15 @@ func StartRouteProxy(wg *sync.WaitGroup) {
 
 	engine := gin.Default()
 
-	s := &http.Server{
-		Addr:              ":" + strconv.Itoa(10000),
-		Handler:           engine,
-		ReadTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       10 * time.Second,
+	timeoutTime := 3 * time.Second
+	opt := timeout.Option{
+		Timeout: &timeoutTime,
+		Code:    408,
+		Msg:     "Timeout abort",
 	}
+
+	engine.Use(middleware.Cors)
+	engine.Use(timeout.ContextTimeout(opt))
 
 	groupProxy := engine.Group(api_v1.PathProxy_Proxy)
 	initGetPostProxy(groupProxy)
@@ -50,8 +52,6 @@ func StartRouteProxy(wg *sync.WaitGroup) {
 	engine.GET("/", handlers.Help)
 
 	err := engine.Run(":" + strconv.Itoa(10000))
-
-	err = s.ListenAndServe()
 
 	if err != nil {
 		wg.Done()

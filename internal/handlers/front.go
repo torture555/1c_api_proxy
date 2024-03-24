@@ -3,32 +3,37 @@ package handlers
 import (
 	"1c_api_proxy/internal/models"
 	"1c_api_proxy/internal/services/connection"
+	"1c_api_proxy/internal/transport/rest/front"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"io"
 )
 
 func SetDBParam(c *gin.Context) {
 
-	var bodyData []byte
-	_, err := c.Request.Body.Read(bodyData)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело запроса",
-			Handler: "/db/set",
+			Handler: front.Database + "/" + front.SetDBParams,
 		}.Error("Не удалось прочитать тело запроса")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	modelBody := models.ConfSQL{}
-	err = json.Unmarshal(bodyData, &modelBody)
+	err = json.Unmarshal(body, &modelBody)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело как JSON",
-			Handler: "/db/set",
+			Handler: front.Database + "/" + front.SetDBParams,
 		}.Error("Не удалось прочитать тело как JSON")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	res := models.SetSettingsDB(&modelBody)
@@ -36,12 +41,39 @@ func SetDBParam(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"result": true,
 		})
+		c.Next()
+		return
 	} else {
 		c.JSON(500, gin.H{
 			"result":      false,
 			"description": "Не удалось записать параметры",
 		})
+		c.Next()
+		return
 	}
+
+}
+
+func GetDBParam(c *gin.Context) {
+
+	list, err := models.GetSettingsDB()
+	if err != nil {
+		c.JSON(500, gin.H{
+			"result":      false,
+			"description": "Не удалось сформировать ответ",
+		})
+		c.Next()
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"host":   list.Host,
+		"port":   list.Port,
+		"login":  list.Login,
+		"DBName": list.DBName,
+	})
+	c.Next()
+	return
 
 }
 
@@ -50,31 +82,36 @@ func GetDBStatus(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"status": models.DBConnect.IsConnected(),
 	})
+	c.Next()
+	return
 
 }
 
 func AddInfobase(c *gin.Context) {
 
-	var bodyData []byte
-	_, err := c.Request.Body.Read(bodyData)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело запроса",
-			Handler: "/infobase/add",
+			Handler: front.Database + "/" + front.SetDBParams,
 		}.Error("Не удалось прочитать тело запроса")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	modelBody := models.Infobase{}
-	err = json.Unmarshal(bodyData, &modelBody)
+	err = json.Unmarshal(body, &modelBody)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело как JSON",
-			Handler: "/infobase/add",
+			Handler: front.Infobases + "/" + front.AddInfobase,
 		}.Error("Не удалось прочитать тело как JSON")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	res := connection.InitService1CAPI(&modelBody)
@@ -82,37 +119,44 @@ func AddInfobase(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"result": true,
 		})
+		c.Next()
+		return
 	} else {
 		c.JSON(500, gin.H{
 			"result":      false,
 			"description": "Не удалось создать, возможно отсутствует имя или URL",
 		})
+		c.Next()
+		return
 	}
 
 }
 
 func EditInfobase(c *gin.Context) {
 
-	var bodyData []byte
-	_, err := c.Request.Body.Read(bodyData)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело запроса",
-			Handler: "/infobase/add",
+			Handler: front.Database + "/" + front.SetDBParams,
 		}.Error("Не удалось прочитать тело запроса")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	modelBody := models.Infobase{}
-	err = json.Unmarshal(bodyData, &modelBody)
+	err = json.Unmarshal(body, &modelBody)
 	if err != nil {
 		models.Log{
 			Context: err.Error(),
 			Comment: "Не удалось прочитать тело как JSON",
-			Handler: "/infobase/add",
+			Handler: front.Infobases + "/" + front.EditInfobase,
 		}.Error("Не удалось прочитать тело как JSON")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	res := models.Connections.EditThread(&modelBody)
@@ -121,25 +165,31 @@ func EditInfobase(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"result": true,
 		})
+		c.Next()
+		return
 	} else {
 		c.JSON(500, gin.H{
 			"result":      false,
 			"description": "Не удалось найти или заменить",
 		})
+		c.Next()
+		return
 	}
 
 }
 
 func DeleteInfobase(c *gin.Context) {
 
-	nameInfobase := c.Request.Header.Get("infobase")
+	nameInfobase := c.Request.Header.Get("Infobase")
 
 	if nameInfobase == "" {
 		models.Log{
 			Comment: "Не заполнено имя информационной базы с заголовке",
-			Handler: "/infobase/status",
+			Handler: front.Infobases + "/" + front.DeleteInfobase,
 		}.Error("Не заполнено имя информационной базы с заголовке")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	findInfobaseThread := models.Connections.FindThreadConnectByName(nameInfobase)
@@ -148,6 +198,8 @@ func DeleteInfobase(c *gin.Context) {
 			"result":      false,
 			"description": "Информационная база не была найдена",
 		})
+		c.Next()
+		return
 	}
 
 	res := models.Connections.DeleteThread(findInfobaseThread)
@@ -155,11 +207,15 @@ func DeleteInfobase(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"result": true,
 		})
+		c.Next()
+		return
 	} else {
 		c.JSON(500, gin.H{
 			"result":      false,
 			"description": "Не удалось создать, возможно отсутствует имя или URL",
 		})
+		c.Next()
+		return
 	}
 
 }
@@ -167,29 +223,24 @@ func DeleteInfobase(c *gin.Context) {
 func GetInfobases(c *gin.Context) {
 
 	list := models.Connections.GetInfobasesList()
-
-	body, err := json.Marshal(list)
-	if err != nil {
-		c.JSON(500, gin.H{
-			"result":      false,
-			"description": "Не удалось сформировать ответ",
-		})
-	}
-
-	c.JSON(200, body)
+	c.JSON(200, list.Bases)
+	c.Next()
+	return
 
 }
 
 func ReloadConnect(c *gin.Context) {
 
-	nameInfobase := c.Request.Header.Get("infobase")
+	nameInfobase := c.Request.Header.Get("Infobase")
 
 	if nameInfobase == "" {
 		models.Log{
 			Comment: "Не заполнено имя информационной базы с заголовке",
-			Handler: "/infobase/status",
+			Handler: front.Infobases + front.ReloadConnect,
 		}.Error("Не заполнено имя информационной базы с заголовке")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	findInfobaseThread := models.Connections.FindThreadConnectByName(nameInfobase)
@@ -198,27 +249,30 @@ func ReloadConnect(c *gin.Context) {
 			"result":      false,
 			"description": "Информационная база не была найдена",
 		})
+		c.Next()
+		return
 	}
 
-	if !findInfobaseThread.ChanIsClosed() {
-		findInfobaseThread.CloseLoop()
-	}
 	connection.RestartLoop(findInfobaseThread)
 	c.JSON(200, gin.H{
 		"result": true,
 	})
+	c.Next()
+	return
 }
 
 func GetStatusInfobase(c *gin.Context) {
 
-	nameInfobase := c.Request.Header.Get("infobase")
+	nameInfobase := c.Request.Header.Get("Infobase")
 
 	if nameInfobase == "" {
 		models.Log{
 			Comment: "Не заполнено имя информационной базы с заголовке",
-			Handler: "/infobase/status",
+			Handler: front.Infobases + "/" + front.Status,
 		}.Error("Не заполнено имя информационной базы с заголовке")
 		c.AbortWithStatus(400)
+		c.Next()
+		return
 	}
 
 	findInfobaseThread := models.Connections.FindThreadConnectByName(nameInfobase)
@@ -227,14 +281,21 @@ func GetStatusInfobase(c *gin.Context) {
 			"result":      false,
 			"description": "Информационная база не была найдена",
 		})
+		c.Next()
+		return
 	}
 
 	c.JSON(200, gin.H{
-		"result": findInfobaseThread.ChanIsClosed(),
+		"result": !findInfobaseThread.ChanIsClosed(),
 	})
+	c.Next()
+	return
 
 }
 
 func GetLogs(c *gin.Context) {
+
+	logs := models.GetLogs()
+	c.JSON(200, logs)
 
 }
